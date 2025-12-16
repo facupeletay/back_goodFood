@@ -1,25 +1,30 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Lunch } from './lunch.entity';
 import { CreateLunchDto } from './dtos/create_lunch.dto';
+import { LunchType } from 'src/lunch-types/lunch-types.entity';
 
 @Injectable()
 export class LunchesService {
-  constructor(@InjectRepository(Lunch) private repo: Repository<Lunch>) {
-    this.repo = repo;
-  }
+  constructor(
+    @InjectRepository(Lunch) private repo: Repository<Lunch>,
+    @InjectRepository(LunchType) private lunchTypesRepo: Repository<LunchType>,
+  ) {}
 
   findAllByPerson(personId: number) {
     return this.repo.find({ where: { persona: { id: personId } } });
   }
 
+  // Normaliza a límites diarios en UTC para evitar desfasajes por zona horaria.
   private getDayRange(dateStr: string) {
     const date = new Date(dateStr);
-    const from = new Date(date);
-    from.setHours(0, 0, 0, 0);
-    const to = new Date(date);
-    to.setHours(23, 59, 59, 999);
+    const from = new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0),
+    );
+    const to = new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999),
+    );
     return { from, to };
   }
 
@@ -38,6 +43,9 @@ export class LunchesService {
 
   private async validateBatch(lunchesArray: CreateLunchDto[]) {
     const batchTotals = this.buildBatchTotals(lunchesArray);
+    const typeIds = Array.from(new Set(lunchesArray.map((l) => l.idtipoconsumo ?? 1)));
+    const types = await this.lunchTypesRepo.findBy({ id: In(typeIds) });
+    const typeMaxMap = new Map<number, number>(types.map((t) => [t.id, t.maxCantidad]));
 
     const validations = await Promise.all(
       Array.from(batchTotals.entries()).map(async ([key, totalInBatch]) => {
@@ -46,18 +54,17 @@ export class LunchesService {
         const typeId = Number(typeIdStr);
         const { from, to } = this.getDayRange(dayIso);
 
+        const maxCantidad = typeMaxMap.get(typeId) ?? 0;
+
         const row = await this.repo
           .createQueryBuilder('alm')
-          .leftJoin('alm.tipoconsumo', 'tipo')
           .select('COALESCE(SUM(alm.cantidad), 0)', 'consumido')
-          .addSelect('MAX(tipo.MaxCantidad)', 'maxCantidad')
           .where('alm.idempleado = :emp', { emp: employeeId })
           .andWhere('alm.idtipoconsumo = :tipo', { tipo: typeId })
           .andWhere('alm.fechahora BETWEEN :from AND :to', { from, to })
-          .getRawOne<{ consumido: string; maxCantidad: string }>();
+          .getRawOne<{ consumido: string }>();
 
         const consumido = Number(row?.consumido ?? 0);
-        const maxCantidad = Number(row?.maxCantidad ?? 0);
 
         return {
           key,
@@ -71,12 +78,13 @@ export class LunchesService {
     );
 
     const errors = validations
-      .filter((v) => v.maxCantidad > 0)
-      .filter((v) => v.consumido + v.totalInBatch > v.maxCantidad)
-      .map(
-        (v) =>
-          `Empleado ${v.employeeId} tipo ${v.typeId} supera max diario ${v.maxCantidad} (consumido: ${v.consumido}, intenta agregar: ${v.totalInBatch})`,
-      );
+      .filter((v) => v.maxCantidad <= 0 || v.consumido + v.totalInBatch > v.maxCantidad)
+      .map((v) => {
+        if (v.maxCantidad <= 0) {
+          return `Empleado ${v.employeeId} tipo ${v.typeId} no tiene MaxCantidad configurado o es 0`;
+        }
+        return `Empleado ${v.employeeId} tipo ${v.typeId} supera max diario ${v.maxCantidad} (consumido: ${v.consumido}, intenta agregar: ${v.totalInBatch})`;
+      });
 
     if (errors.length) {
       throw new BadRequestException({
