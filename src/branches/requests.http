@@ -1,0 +1,4 @@
+### Get all branches
+GET http://localhost:3000/branches
+content-type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJ0ZXN0IiwiaWF0IjoxNzI1MDU5MDQyLCJleHAiOjE3MjU2NjM4NDJ9.U7nOTF6OREu5nAFN2zl1JsMrsUXy1TfDAWIDbV-gzxo

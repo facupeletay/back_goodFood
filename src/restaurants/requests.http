@@ -1,0 +1,2 @@
+GET http://localhost:3000/restaurants/
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJURVNUIiwiaWF0IjoxNzI5NjQ2ODk2LCJleHAiOjE3NjEyMDQ0OTZ9.3FMh_UM0mkh2O94yrYNdsIEUiOBbpVu15HQ0MdtY9zY

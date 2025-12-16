@@ -1,0 +1,12 @@
+### Sing in
+POST http://localhost:3000/auth/login
+content-type: application/json
+
+{
+  "username": "TEST",
+  "password": "TEST"
+}
+
+### profile
+GET http://localhost:3000/auth/profile
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJ0ZXN0IiwiaWF0IjoxNzI0NzI3Nzc1LCJleHAiOjE3MjUzMzI1NzV9.KXdwFY0U8s05_1rp9ai2_OceM97xJC7HZ-e8ab2lcno

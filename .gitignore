@@ -1,0 +1,9 @@
+node_modules
+.env.development
+.env.production
+.env.test
+.DS_Store
+dist
+almuerzos_api.zip
+almuerzos_api_code.zip
+almuerzos_api_code/

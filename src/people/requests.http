@@ -1,0 +1,4 @@
+### Get people by branch id
+GET http://localhost:3000/people/branch/1
+content-type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJ0ZXN0IiwiaWF0IjoxNzI1NDE2NTc5LCJleHAiOjE3MjYwMjEzNzl9._4OJYIMZQrmmnZh1AwZTffKpB07SbI5fxpMnMJaZrHA

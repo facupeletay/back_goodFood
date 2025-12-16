@@ -1,0 +1,45 @@
+version: '3.8'
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_PORT: ${PORT:-3000}
+    container_name: nestjs_good_food_api
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      NODE_ENV: development
+      APP_PORT: ${PORT:-3000}
+    env_file:
+      - .env.development
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    depends_on:
+      - db  # Dependencia a MySQL
+    networks:
+      - backend
+
+  db:
+    image: mysql:8.0
+    container_name: mysql_db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass  # Cambia este password
+      MYSQL_DATABASE: myapp_db       # Base de datos por defecto
+      MYSQL_USER: myuser             # Usuario
+      MYSQL_PASSWORD: mypass         # Contraseña
+    ports:
+      - "3306:3306"
+    networks:
+      - backend
+    volumes:
+      - mysql_data:/var/lib/mysql    # Para persistir datos
+
+volumes:
+  mysql_data:
+
+networks:
+  backend:
+    driver: bridge

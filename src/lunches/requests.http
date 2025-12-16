@@ -1,0 +1,12 @@
+
+## Create lunch
+POST http://localhost:3000/lunches
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJ0ZXN0IiwiaWF0IjoxNzI2OTYwNDE2LCJleHAiOjE3Mjc1NjUyMTZ9.hyitVChDLeDiV50VLE6teYqU22C3lc49wGzd12NcQjg
+
+[{
+  "idempleado": 2,
+  "cantidad": 1,
+  "fechahora": "2024-09-21T20:22:00"
+}]
+
