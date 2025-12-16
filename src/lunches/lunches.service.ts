@@ -1,16 +1,13 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import { Lunch } from './lunch.entity';
 import { CreateLunchDto } from './dtos/create_lunch.dto';
 import { LunchType } from 'src/lunch-types/lunch-types.entity';
 
 @Injectable()
 export class LunchesService {
-  constructor(
-    @InjectRepository(Lunch) private repo: Repository<Lunch>,
-    @InjectRepository(LunchType) private lunchTypesRepo: Repository<LunchType>,
-  ) {}
+  constructor(@InjectRepository(Lunch) private repo: Repository<Lunch>) {}
 
   findAllByPerson(personId: number) {
     return this.repo.find({ where: { persona: { id: personId } } });
@@ -52,10 +49,13 @@ export class LunchesService {
     return batchTotals;
   }
 
-  private async validateBatch(lunchesArray: CreateLunchDto[]) {
+  private async validateBatch(lunchesArray: CreateLunchDto[], manager: EntityManager) {
     const batchTotals = this.buildBatchTotals(lunchesArray);
     const typeIds = Array.from(new Set(lunchesArray.map((l) => l.idtipoconsumo ?? 1)));
-    const types = await this.lunchTypesRepo.findBy({ id: In(typeIds) });
+    const lunchTypeRepo = manager.getRepository(LunchType);
+    const lunchRepo = manager.getRepository(Lunch);
+
+    const types = await lunchTypeRepo.findBy({ id: In(typeIds) });
     const typeMaxMap = new Map<number, number>(types.map((t) => [t.id, t.maxCantidad]));
 
     const validations = await Promise.all(
@@ -67,7 +67,7 @@ export class LunchesService {
 
         const maxCantidad = typeMaxMap.get(typeId) ?? 0;
 
-        const row = await this.repo
+        const row = await lunchRepo
           .createQueryBuilder('alm')
           .select('COALESCE(SUM(alm.cantidad), 0)', 'consumido')
           .where('alm.idempleado = :emp', { emp: employeeId })
@@ -117,8 +117,9 @@ export class LunchesService {
   }
 
   async insertLunches(lunchesArray: CreateLunchDto[]) {
-    await this.validateBatch(lunchesArray);
-
-    return this.repo.save(lunchesArray);
+    return this.repo.manager.transaction(async (manager) => {
+      await this.validateBatch(lunchesArray, manager);
+      return manager.getRepository(Lunch).save(lunchesArray);
+    });
   }
 }
