@@ -29,14 +29,25 @@ export class LunchesService {
   }
 
   private buildBatchTotals(lunchesArray: CreateLunchDto[]) {
-    const batchTotals = new Map<string, number>();
+    const batchTotals = new Map<
+      string,
+      { total: number; indexes: number[]; sample: CreateLunchDto }
+    >();
 
-    for (const lunch of lunchesArray) {
+    lunchesArray.forEach((lunch, idx) => {
       const typeId = lunch.idtipoconsumo ?? 1;
       const { from } = this.getDayRange(lunch.fechahora);
       const key = `${lunch.idempleado}|${typeId}|${from.toISOString()}`;
-      batchTotals.set(key, (batchTotals.get(key) ?? 0) + lunch.cantidad);
-    }
+      const current = batchTotals.get(key) ?? {
+        total: 0,
+        indexes: [],
+        sample: lunch,
+      };
+      current.total += lunch.cantidad;
+      current.indexes.push(idx);
+      // keep first sample only; it's just for context
+      batchTotals.set(key, current);
+    });
 
     return batchTotals;
   }
@@ -48,7 +59,7 @@ export class LunchesService {
     const typeMaxMap = new Map<number, number>(types.map((t) => [t.id, t.maxCantidad]));
 
     const validations = await Promise.all(
-      Array.from(batchTotals.entries()).map(async ([key, totalInBatch]) => {
+      Array.from(batchTotals.entries()).map(async ([key, info]) => {
         const [employeeIdStr, typeIdStr, dayIso] = key.split('|');
         const employeeId = Number(employeeIdStr);
         const typeId = Number(typeIdStr);
@@ -72,19 +83,30 @@ export class LunchesService {
           typeId,
           maxCantidad,
           consumido,
-          totalInBatch,
+          totalInBatch: info.total,
+          indexes: info.indexes,
+          dayIso,
         };
       }),
     );
 
     const errors = validations
       .filter((v) => v.maxCantidad <= 0 || v.consumido + v.totalInBatch > v.maxCantidad)
-      .map((v) => {
-        if (v.maxCantidad <= 0) {
-          return `Empleado ${v.employeeId} tipo ${v.typeId} no tiene MaxCantidad configurado o es 0`;
-        }
-        return `Empleado ${v.employeeId} tipo ${v.typeId} supera max diario ${v.maxCantidad} (consumido: ${v.consumido}, intenta agregar: ${v.totalInBatch})`;
-      });
+      .map((v) => ({
+        employeeId: v.employeeId,
+        typeId: v.typeId,
+        day: v.dayIso,
+        indexes: v.indexes,
+        consumido: v.consumido,
+        agrega: v.totalInBatch,
+        max: v.maxCantidad,
+        reason:
+          v.maxCantidad <= 0 ? 'max_cantidad_no_configurado' : 'supera_max_diario',
+        message:
+          v.maxCantidad <= 0
+            ? `Empleado ${v.employeeId} tipo ${v.typeId} no tiene MaxCantidad configurado o es 0`
+            : `Empleado ${v.employeeId} tipo ${v.typeId} supera max diario ${v.maxCantidad} (consumido: ${v.consumido}, intenta agregar: ${v.totalInBatch})`,
+      }));
 
     if (errors.length) {
       throw new BadRequestException({
