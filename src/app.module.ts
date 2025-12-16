@@ -27,8 +27,9 @@ import { LunchTypesModule } from './lunch-types/lunch-types.module';
           username: config.get<string>('DB_USERNAME'),
           password: config.get<string>('DB_PASSWORD'),
           host: config.get<string>('DB_HOST'),
-          port: config.get<number>('DB_PORT'),
+          port: Number(config.get('DB_PORT')),
           entities: [__dirname + '/**/*.entity{.ts,.js}'],
+          synchronize: true,
         };
       },
     }),
