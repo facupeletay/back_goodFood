@@ -23,34 +23,7 @@ export class LunchesService {
     return { from, to };
   }
 
-  private async ensureCapacity(lunch: CreateLunchDto, extraInBatch: number) {
-    const { from, to } = this.getDayRange(lunch.fechahora);
-    const typeId = lunch.idtipoconsumo ?? 1;
-
-    const row = await this.repo
-      .createQueryBuilder('alm')
-      .leftJoin('alm.tipoconsumo', 'tipo')
-      .select('COALESCE(SUM(alm.cantidad), 0)', 'consumido')
-      .addSelect('MAX(tipo.MaxCantidad)', 'maxCantidad')
-      .where('alm.idempleado = :emp', { emp: lunch.idempleado })
-      .andWhere('alm.idtipoconsumo = :tipo', { tipo: typeId })
-      .andWhere('alm.fechahora BETWEEN :from AND :to', { from, to })
-      .getRawOne<{ consumido: string; maxCantidad: string }>();
-
-    const consumido = Number(row?.consumido ?? 0);
-    const maxCantidad = Number(row?.maxCantidad ?? 0);
-
-    if (
-      maxCantidad > 0 &&
-      consumido + lunch.cantidad + extraInBatch > maxCantidad
-    ) {
-      throw new BadRequestException(
-        `Maximo diario (${maxCantidad}) superado para empleado ${lunch.idempleado} en tipo ${typeId}`,
-      );
-    }
-  }
-
-  async insertLunches(lunchesArray: CreateLunchDto[]) {
+  private buildBatchTotals(lunchesArray: CreateLunchDto[]) {
     const batchTotals = new Map<string, number>();
 
     for (const lunch of lunchesArray) {
@@ -60,13 +33,61 @@ export class LunchesService {
       batchTotals.set(key, (batchTotals.get(key) ?? 0) + lunch.cantidad);
     }
 
-    for (const lunch of lunchesArray) {
-      const typeId = lunch.idtipoconsumo ?? 1;
-      const { from } = this.getDayRange(lunch.fechahora);
-      const key = `${lunch.idempleado}|${typeId}|${from.toISOString()}`;
-      const extraInBatch = (batchTotals.get(key) ?? 0) - lunch.cantidad;
-      await this.ensureCapacity(lunch, extraInBatch);
+    return batchTotals;
+  }
+
+  private async validateBatch(lunchesArray: CreateLunchDto[]) {
+    const batchTotals = this.buildBatchTotals(lunchesArray);
+
+    const validations = await Promise.all(
+      Array.from(batchTotals.entries()).map(async ([key, totalInBatch]) => {
+        const [employeeIdStr, typeIdStr, dayIso] = key.split('|');
+        const employeeId = Number(employeeIdStr);
+        const typeId = Number(typeIdStr);
+        const { from, to } = this.getDayRange(dayIso);
+
+        const row = await this.repo
+          .createQueryBuilder('alm')
+          .leftJoin('alm.tipoconsumo', 'tipo')
+          .select('COALESCE(SUM(alm.cantidad), 0)', 'consumido')
+          .addSelect('MAX(tipo.MaxCantidad)', 'maxCantidad')
+          .where('alm.idempleado = :emp', { emp: employeeId })
+          .andWhere('alm.idtipoconsumo = :tipo', { tipo: typeId })
+          .andWhere('alm.fechahora BETWEEN :from AND :to', { from, to })
+          .getRawOne<{ consumido: string; maxCantidad: string }>();
+
+        const consumido = Number(row?.consumido ?? 0);
+        const maxCantidad = Number(row?.maxCantidad ?? 0);
+
+        return {
+          key,
+          employeeId,
+          typeId,
+          maxCantidad,
+          consumido,
+          totalInBatch,
+        };
+      }),
+    );
+
+    const errors = validations
+      .filter((v) => v.maxCantidad > 0)
+      .filter((v) => v.consumido + v.totalInBatch > v.maxCantidad)
+      .map(
+        (v) =>
+          `Empleado ${v.employeeId} tipo ${v.typeId} supera max diario ${v.maxCantidad} (consumido: ${v.consumido}, intenta agregar: ${v.totalInBatch})`,
+      );
+
+    if (errors.length) {
+      throw new BadRequestException({
+        message: 'Se superaron los limites diarios para uno o mas consumos',
+        errors,
+      });
     }
+  }
+
+  async insertLunches(lunchesArray: CreateLunchDto[]) {
+    await this.validateBatch(lunchesArray);
 
     return this.repo.save(lunchesArray);
   }
