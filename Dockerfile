@@ -10,7 +10,8 @@ RUN pnpm install
 
 RUN pnpm run build
 
-ARG APP_PORT=3000
-EXPOSE $APP_PORT
+# Default to port 3000; Railway/host can override PORT at runtime.
+ENV PORT=3000
+EXPOSE ${PORT}
 
 CMD [ "pnpm", "run", "start:prod" ] 
