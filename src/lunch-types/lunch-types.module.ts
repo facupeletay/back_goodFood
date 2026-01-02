@@ -8,5 +8,6 @@ import { LunchType } from './lunch-types.entity';
   imports: [TypeOrmModule.forFeature([LunchType])],
   controllers: [LunchTypesController],
   providers: [LunchTypesService],
+  exports: [LunchTypesService],
 })
 export class LunchTypesModule { }

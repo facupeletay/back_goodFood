@@ -48,4 +48,7 @@ export class Lunch {
   @ManyToOne(() => LunchType, (lunchType) => lunchType.almuerzos)
   @JoinColumn({ name: 'idtipoconsumo' })
   tipoconsumo: LunchType;
+
+  @Column({ nullable: true, unique: true })
+  operationId?: string;
 }
