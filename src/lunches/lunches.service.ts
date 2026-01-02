@@ -340,7 +340,7 @@ export class LunchesService {
       );
 
       const acceptedTotals = new Map<string, number>();
-      const toInsert: Array<CreateLunchDto & { idusuario: number }> = [];
+      const toInsert: Array<CreateLunchDto & { idusuario: number; operationId?: string }> = [];
 
       validOps.forEach((op) => {
         if (existingOpIds.has(op.operationId)) {
