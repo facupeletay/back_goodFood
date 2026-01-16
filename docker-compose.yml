@@ -5,18 +5,18 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        APP_PORT: ${PORT:-3000}
+        APP_PORT: 3011
     container_name: nestjs_good_food_api
     working_dir: /app
     volumes:
       - .:/app
     environment:
       NODE_ENV: development
-      APP_PORT: ${PORT:-3000}
+      APP_PORT: 3011
     env_file:
       - .env.development
     ports:
-      - "${PORT:-3000}:${PORT:-3000}"
+      - "3011:3011"
     depends_on:
       - db  # Dependencia a MySQL
     networks:
@@ -27,9 +27,9 @@ services:
     container_name: mysql_db
     environment:
       MYSQL_ROOT_PASSWORD: rootpass  # Cambia este password
-      MYSQL_DATABASE: myapp_db       # Base de datos por defecto
-      MYSQL_USER: myuser             # Usuario
-      MYSQL_PASSWORD: mypass         # Contraseña
+      MYSQL_DATABASE: app-genuk-test       # Base de datos por defecto
+      MYSQL_USER: GENUK-TEST             # Usuario
+      MYSQL_PASSWORD: Comodoro2026+         # Contraseña
     ports:
       - "3306:3306"
     networks:
