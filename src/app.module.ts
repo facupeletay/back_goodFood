@@ -29,7 +29,7 @@ import { LunchTypesModule } from './lunch-types/lunch-types.module';
           host: config.get<string>('DB_HOST'),
           port: Number(config.get('DB_PORT')),
           entities: [__dirname + '/**/*.entity{.ts,.js}'],
-          synchronize: true,
+          synchronize: false,
         };
       },
     }),
